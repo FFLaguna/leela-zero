@@ -68,7 +68,7 @@ std::vector<float> conv_pol_b;
 std::array<float, 2> bn_pol_w1;
 std::array<float, 2> bn_pol_w2;
 
-std::array<float, 261364> ip_pol_w;
+std::array<float, BOARD_SQUARE_SIZE*2*BOARD_ACTION_N> ip_pol_w;
 std::array<float, BOARD_ACTION_N> ip_pol_b;
 
 // Value head
@@ -77,7 +77,7 @@ std::vector<float> conv_val_b;
 std::array<float, 1> bn_val_w1;
 std::array<float, 1> bn_val_w2;
 
-std::array<float, 92416> ip1_val_w;
+std::array<float, BOARD_SQUARE_SIZE*256> ip1_val_w;
 std::array<float, 256> ip1_val_b;
 
 std::array<float, 256> ip2_val_w;

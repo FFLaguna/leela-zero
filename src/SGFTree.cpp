@@ -149,7 +149,7 @@ void SGFTree::populate_states(void) {
         } else {
             if (!m_properties.count("SZ")) {
                 // No size, but SGF spec defines default size for Go
-                m_properties.insert(std::make_pair("SZ", "BOARD_SIZE"));
+                m_properties.insert(std::make_pair("SZ", std::to_string(BOARD_SIZE)));
                 valid_size = true;
             }
         }
