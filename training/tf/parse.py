@@ -25,48 +25,51 @@ import multiprocessing as mp
 import tensorflow as tf
 from tfprocess import TFProcess
 
-# 16 planes, 1 stm, 1 x 362 probs, 1 winner = 19 lines
+# 16 planes, 1 stm, 1 x BOARD_ACTION_N probs, 1 winner = BOARD_SIZE lines
 DATA_ITEM_LINES = 16 + 1 + 1 + 1
 
 BATCH_SIZE = 256
+BOARD_SIZE = 9
+BOARD_SQUARE_SIZE = BOARD_SIZE * BOARD_SIZE
+BOARD_ACTION_N = BOARD_SQUARE_SIZE + 1  # 1 for "PASS"
 
 def remap_vertex(vertex, symmetry):
     """
         Remap a go board coordinate according to a symmetry.
     """
-    assert vertex >= 0 and vertex < 361
-    x = vertex % 19
-    y = vertex // 19
+    assert vertex >= 0 and vertex < BOARD_SQUARE_SIZE
+    x = vertex % BOARD_SIZE
+    y = vertex // BOARD_SIZE
     if symmetry >= 4:
         x, y = y, x
         symmetry -= 4
     if symmetry == 1 or symmetry == 3:
-        x = 19 - x - 1
+        x = BOARD_SIZE - x - 1
     if symmetry == 2 or symmetry == 3:
-        y = 19 - y - 1
-    return y * 19 + x
+        y = BOARD_SIZE - y - 1
+    return y * BOARD_SIZE + x
 
 def apply_symmetry(plane, symmetry):
     """
         Applies one of 8 symmetries to the go board.
 
-        The supplied go board can have 361 or 362 elements. The 362th
+        The supplied go board can have BOARD_SQUARE_SIZE or BOARD_ACTION_N elements. The BOARD_ACTION_Nth
         element is pass will which get the identity mapping.
     """
     assert symmetry >= 0 and symmetry < 8
-    work_plane = [0.0] * 361
-    for vertex in range(0, 361):
+    work_plane = [0.0] * BOARD_SQUARE_SIZE
+    for vertex in range(0, BOARD_SQUARE_SIZE):
         work_plane[vertex] = plane[remap_vertex(vertex, symmetry)]
     # Map back "pass"
-    if len(plane) == 362:
-        work_plane.append(plane[361])
+    if len(plane) == BOARD_ACTION_N:
+        work_plane.append(plane[BOARD_SQUARE_SIZE])
     return work_plane
 
 def convert_train_data(text_item):
     """"
         Convert textual training data to python lists.
 
-        Converts a set of 19 lines of text into a pythonic dataformat.
+        Converts a set of BOARD_SIZE lines of text into a pythonic dataformat.
         [[plane_1],[plane_2],...],...
         [probabilities],...
         winner,...
@@ -81,17 +84,17 @@ def convert_train_data(text_item):
         last_digit = text_item[plane][90]
         assert last_digit == "0" or last_digit == "1"
         as_str += last_digit
-        assert len(as_str) == 361
+        assert len(as_str) == BOARD_SQUARE_SIZE
         plane = [0.0 if digit == "0" else 1.0 for digit in as_str]
         planes.append(plane)
     stm = text_item[16][0]
     assert stm == "0" or stm == "1"
     if stm == "0":
-        planes.append([1.0] * 361)
-        planes.append([0.0] * 361)
+        planes.append([1.0] * BOARD_SQUARE_SIZE)
+        planes.append([0.0] * BOARD_SQUARE_SIZE)
     else:
-        planes.append([0.0] * 361)
-        planes.append([1.0] * 361)
+        planes.append([0.0] * BOARD_SQUARE_SIZE)
+        planes.append([1.0] * BOARD_SQUARE_SIZE)
     assert len(planes) == 18
     probabilities = []
     for val in text_item[17].split():
@@ -100,7 +103,7 @@ def convert_train_data(text_item):
         if math.isnan(float_val):
             return False, None
         probabilities.append(float_val)
-    assert len(probabilities) == 362
+    assert len(probabilities) == BOARD_ACTION_N
     winner = float(text_item[18])
     assert winner == 1.0 or winner == -1.0
     # Get one of 8 symmetries

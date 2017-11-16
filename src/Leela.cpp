@@ -211,7 +211,7 @@ void parse_commandline(int argc, char *argv[], bool & gtp_mode) {
 
     if (vm.count("rowtiles")) {
         int rowtiles = vm["rowtiles"].as<int>();
-        rowtiles = std::min(19, rowtiles);
+        rowtiles = std::min(BOARD_SIZE, rowtiles);
         rowtiles = std::max(1, rowtiles);
         if (rowtiles != cfg_rowtiles) {
             myprintf("Splitting the board in %d tiles.\n", rowtiles);
@@ -257,7 +257,7 @@ int main (int argc, char *argv[]) {
 
     /* set board limits */
     float komi = 7.5;
-    maingame->init_game(19, komi);
+    maingame->init_game(BOARD_SIZE, komi);
 
     for(;;) {
         if (!gtp_mode) {

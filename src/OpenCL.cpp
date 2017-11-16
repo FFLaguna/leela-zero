@@ -40,7 +40,7 @@
 
 using namespace Utils;
 
-static std::string sourceCode_convolve1 = R"(
+static std::string sourceCode_convolve1 = boost::str(boost::format(R"(
     __kernel
     __attribute__((work_group_size_hint(8, 16, 1)))
     void convolve1(
@@ -71,18 +71,19 @@ static std::string sourceCode_convolve1 = R"(
         // weights = output * channels * filter
         // merge = channels * outputs * height * width
 
-        const int width = 19;
-        const int height = 19;
+        const int BOARD_SIZE = %d;
+        const int width = BOARD_SIZE;
+        const int height = BOARD_SIZE;
         const int strip_size = width;
 
         // Copy the input channels (strips) locally
-        if (out_buff_size < 19 && ly == 0) {
+        if (out_buff_size < BOARD_SIZE && ly == 0) {
             // strip-row
             for (int w = 0; w < width; w++) {
                 channel_buff[lx * width + w] =
                     in[(c * height + row) * width + w];
             }
-        } else if (out_buff_size >= 19 && ly < 19) {
+        } else if (out_buff_size >= BOARD_SIZE && ly < BOARD_SIZE) {
             // Every thread copies a column
             channel_buff[lx * width + ly] = in[(c * height + row) * width + ly];
         }
@@ -120,9 +121,9 @@ static std::string sourceCode_convolve1 = R"(
            }
        }
     }
-)";
+)") % BOARD_SIZE);
 
-static std::string sourceCode_convolve3 = R"(
+static std::string sourceCode_convolve3 = boost::str(boost::format(R"(
     __kernel
     __attribute__((work_group_size_hint(8, 32, 1)))
     void convolve3(
@@ -149,8 +150,9 @@ static std::string sourceCode_convolve3 = R"(
         const int ly = get_local_id(1);
 
         const int out_buff_size  = get_local_size(1);
-        const int width = 19;
-        const int height = 19;
+        const int BOARD_SIZE = %d;
+        const int width = BOARD_SIZE;
+        const int height = BOARD_SIZE;
 
         const int filter_size = 3;
         const int filter_len = filter_size * filter_size;
@@ -203,7 +205,7 @@ static std::string sourceCode_convolve3 = R"(
                     for (int srow = 0; srow < filter_size; srow++) {
                         int in_row = row - extent + srow;
                         float val = 0.0f;
-                        if ((unsigned)in_row < height && ly >= 1 && ly <= 19) {
+                        if ((unsigned)in_row < height && ly >= 1 && ly <= BOARD_SIZE) {
                             val = in[(c * height + in_row) * width + ly - 1];
                         }
                         channel_buff[copy_idx + srow] = val;
@@ -214,7 +216,7 @@ static std::string sourceCode_convolve3 = R"(
                 } else {
                     int in_row = row - extent + 2;
                     float val = 0.0f;
-                    if (ly >= 1 && ly <= 19) {
+                    if (ly >= 1 && ly <= BOARD_SIZE) {
                         val = in[(c * height + in_row) * width + ly - 1];
                     }
                     channel_buff[copy_idx + 0] = chan_cache[0];
@@ -288,16 +290,16 @@ static std::string sourceCode_convolve3 = R"(
             }
         }
     }
-)";
+)") % BOARD_SIZE);
 
-static std::string sourceCode_utility = R"(
+static std::string sourceCode_utility = boost::str(boost::format(R"(
     __kernel void merge(
                         __global const float * in,
                         __global float * out,
                         __constant const float * biases,
                         __private const int channels) {
 
-        // cl::NDRange global(outputs, 19*19);
+        // cl::NDRange global(outputs, BOARD_SIZE*BOARD_SIZE);
         const int gx = get_global_id(0);
         const int gy = get_global_id(1);
 
@@ -305,8 +307,9 @@ static std::string sourceCode_utility = R"(
         const int b = gy;
         const int outputs = get_global_size(0);
 
-        const int width = 19;
-        const int height = 19;
+        const int BOARD_SIZE = %d;
+        const int width = BOARD_SIZE;
+        const int height = BOARD_SIZE;
         const int boardsize = width * height;
 
         const int o = output;
@@ -326,7 +329,8 @@ static std::string sourceCode_utility = R"(
                         __constant const float * means,
                         __constant const float * variances) {
 
-        // cl::NDRange global(outputs, 19*19);
+        const int BOARD_SIZE = BOARD_SIZE;
+        // cl::NDRange global(outputs, BOARD_SIZE*BOARD_SIZE);
         const int gx = get_global_id(0);
         const int gy = get_global_id(1);
 
@@ -352,7 +356,7 @@ static std::string sourceCode_utility = R"(
         // ReLU
         out[o * channel_size + b] = sum > 0 ? sum : 0.0f;
     }
-)";
+)") % BOARD_SIZE);
 
 OpenCL opencl;
 OpenCL_Network opencl_net;
@@ -389,8 +393,8 @@ void OpenCL_Network::add_weights(size_t layer,
 
 void OpenCL_Network::forward(const std::vector<float>& input,
                              std::vector<float>& output) {
-    constexpr int width = 19;
-    constexpr int height = 19;
+    constexpr int width = BOARD_SIZE;
+    constexpr int height = BOARD_SIZE;
     constexpr size_t one_plane = width * height * sizeof(float);
 
     opencl.ensure_thread_initialized();
@@ -454,7 +458,7 @@ void OpenCL_Network::forward(const std::vector<float>& input,
                      conv1_weights);
             std::swap(inBuffer, tmpBuffer);
             batchnorm(layer.outputs,
-                      361,
+                      BOARD_SQUARE_SIZE,
                       inBuffer,
                       tmpBuffer,
                       nullptr,
@@ -469,7 +473,7 @@ void OpenCL_Network::forward(const std::vector<float>& input,
                      conv2_weights);
             std::swap(inBuffer, tmpBuffer);
             batchnorm(layer.outputs,
-                      361,
+                      BOARD_SQUARE_SIZE,
                       inBuffer,
                       tmpBuffer,
                       &residualBuffer,
@@ -499,9 +503,9 @@ void OpenCL_Network::convolve(int filter_size, int channels, int outputs,
                               cl::Buffer& bufferOutput,
                               cl::Buffer& bufferMerge,
                               std::vector<cl::Buffer>& weights) {
-    // fixed for 19x19
-    constexpr int width = 19;
-    constexpr int height = 19;
+    // fixed for BOARD_SIZE*BOARD_SIZE
+    constexpr int width = BOARD_SIZE;
+    constexpr int height = BOARD_SIZE;
     constexpr int boardsize = width * height;
 
     cl::Kernel * m_convolve_kernel = nullptr;
@@ -539,11 +543,11 @@ void OpenCL_Network::convolve(int filter_size, int channels, int outputs,
     if (filter_size == 3) {
         stripSize = filter_size * (width + (filter_size - 1)) * sizeof(float);
         rowTiles    =  cfg_rowtiles;
-        rowTileSize =  (19 + rowTiles - 1) / rowTiles;
+        rowTileSize =  (BOARD_SIZE + rowTiles - 1) / rowTiles;
     } else {
         assert(filter_size == 1);
         stripSize = width * sizeof(float);
-        rowTiles    = 19;
+        rowTiles    = BOARD_SIZE;
         rowTileSize =  1;
         assert(channelGroup == 8); // hardcoded in kernel
     }
@@ -588,7 +592,7 @@ void OpenCL_Network::convolve(int filter_size, int channels, int outputs,
 
         queue.enqueueNDRangeKernel(merge_kernel, cl::NullRange,
                                    cl::NDRange(outputs, boardsize),
-                                   cl::NDRange(std::min(8, outputs), 19));
+                                   cl::NDRange(std::min(8, outputs), BOARD_SIZE));
     } catch (const cl::Error &e) {
         std::cerr << "Error in merge: " << e.what() << ": "
 	        << e.err() << std::endl;
@@ -607,8 +611,8 @@ void OpenCL_Network::batchnorm(int outputs,
     cl::Kernel & batchnorm_kernel = opencl_thread_data.m_batchnorm_kernel;
 
     size_t channelGroup = 1;
-    if (channel_size == 361) {
-        channelGroup = 19;
+    if (channel_size == BOARD_SQUARE_SIZE) {
+        channelGroup = BOARD_SIZE;
     }
 
     try {

@@ -159,7 +159,7 @@ bool Game::readMove() {
 }
 
 bool Game::nextMove() {
-    if(resignation || passes > 1 || moveNum > (19 * 19 * 2)) {
+    if(resignation || passes > 1 || moveNum > (BOARD_SIZE * BOARD_SIZE * 2)) {
         return false;
     }
     blackToMove = !blackToMove;

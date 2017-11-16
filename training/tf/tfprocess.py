@@ -52,8 +52,8 @@ class TFProcess:
         # TF variables
         self.next_batch = next_batch
         self.global_step = tf.Variable(0, name='global_step', trainable=False)
-        self.x = next_batch[0]  # tf.placeholder(tf.float32, [None, 18, 19 * 19])
-        self.y_ = next_batch[1] # tf.placeholder(tf.float32, [None, 362])
+        self.x = next_batch[0]  # tf.placeholder(tf.float32, [None, 18, BOARD_SIZE * BOARD_SIZE])
+        self.y_ = next_batch[1] # tf.placeholder(tf.float32, [None, BOARD_ACTION_N])
         self.z_ = next_batch[2] # tf.placeholder(tf.float32, [None, 1])
         self.training = tf.placeholder(tf.bool)
         self.batch_norm_count = 0
@@ -278,8 +278,8 @@ class TFProcess:
         RESIDUAL_BLOCKS = 6
 
         # NCHW format
-        # batch, 18 channels, 19 x 19
-        x_planes = tf.reshape(planes, [-1, 18, 19, 19])
+        # batch, 18 channels, BOARD_SIZE x BOARD_SIZE
+        x_planes = tf.reshape(planes, [-1, 18, BOARD_SIZE, BOARD_SIZE])
 
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
@@ -293,9 +293,9 @@ class TFProcess:
         conv_pol = self.conv_block(flow, filter_size=1,
                                    input_channels=RESIDUAL_FILTERS,
                                    output_channels=2)
-        h_conv_pol_flat = tf.reshape(conv_pol, [-1, 2*19*19])
-        W_fc1 = weight_variable([2 * 19 * 19, (19 * 19) + 1])
-        b_fc1 = bias_variable([(19 * 19) + 1])
+        h_conv_pol_flat = tf.reshape(conv_pol, [-1, 2*BOARD_SIZE*BOARD_SIZE])
+        W_fc1 = weight_variable([2 * BOARD_SIZE * BOARD_SIZE, (BOARD_SIZE * BOARD_SIZE) + 1])
+        b_fc1 = bias_variable([(BOARD_SIZE * BOARD_SIZE) + 1])
         self.weights.append(W_fc1)
         self.weights.append(b_fc1)
         h_fc1 = tf.add(tf.matmul(h_conv_pol_flat, W_fc1), b_fc1)
@@ -304,8 +304,8 @@ class TFProcess:
         conv_val = self.conv_block(flow, filter_size=1,
                                    input_channels=RESIDUAL_FILTERS,
                                    output_channels=1)
-        h_conv_val_flat = tf.reshape(conv_val, [-1, 19*19])
-        W_fc2 = weight_variable([19 * 19, 256])
+        h_conv_val_flat = tf.reshape(conv_val, [-1, BOARD_SIZE*BOARD_SIZE])
+        W_fc2 = weight_variable([BOARD_SIZE * BOARD_SIZE, 256])
         b_fc2 = bias_variable([256])
         self.weights.append(W_fc2)
         self.weights.append(b_fc2)

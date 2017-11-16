@@ -138,7 +138,7 @@ void UCTNode::link_nodelist(std::atomic<int> & nodecount,
     std::sort(begin(nodelist), end(nodelist));
 
     // link the nodes together, we only really link the last few
-    size_t maxchilds = 362;
+    size_t maxchilds = BOARD_ACTION_N;
     int childrenadded = 0;
     size_t childrenseen = 0;
 
@@ -336,7 +336,7 @@ UCTNode* UCTNode::uct_select_child(int color) {
     LOCK(get_mutex(), lock);
     // Progressive widening
     // int childbound = std::max(2, (int)(((log((double)get_visits()) - 3.0) * 3.0) + 2.0));
-    int childbound = 362;
+    int childbound = BOARD_ACTION_N;
     int childcount = 0;
     UCTNode * child = m_firstchild;
 

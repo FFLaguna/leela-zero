@@ -28,8 +28,8 @@ template <unsigned long filter_size>
 void im2col(const int channels,
             const std::vector<float>& input,
             std::vector<float>& output) {
-    constexpr unsigned int height = 19;
-    constexpr unsigned int width = 19;
+    constexpr unsigned int height = BOARD_SIZE;
+    constexpr unsigned int width = BOARD_SIZE;
     constexpr unsigned int channel_size = height * width;
 
     constexpr int pad = (filter_size / 2);
