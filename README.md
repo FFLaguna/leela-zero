@@ -172,6 +172,14 @@ The zero\_mini.prototxt file describes a smaller 12 residual block case. The
 training/tf directory contains a 6 residual block version in TensorFlow format,
 in the tfprocess.py file.
 
+# Self play
+
+## generate randome weights
+
+If you need a random weight file to start selfplay, you can run:
+
+    python3 tools/make_random_weights.py --board-size 9 --out /file/path/you/want
+
 # Training
 
 ## Getting the data
