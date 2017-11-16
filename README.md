@@ -163,7 +163,7 @@ neural networks). This has been fixed in Leela Zero. The inputs are:
 18) All 1 if white is to move, 0 otherwise
 ```
 
-Each of these forms a 19 x 19 bit plane.
+Each of these forms a 9 x 9 bit plane.
 
 In the training/caffe directory there is a zero.prototxt file which contains a
 description of the full 40 residual block design, in (NVIDIA)-Caffe protobuff
