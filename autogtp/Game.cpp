@@ -19,6 +19,9 @@
 #include <QUuid>
 #include "Game.h"
 
+// TODO: a project-wide config would be better.
+static const int BOARD_SIZE = 19;
+
 Game::Game(const QString& weights, QTextStream& out) :
     QProcess(),
     output(out),
