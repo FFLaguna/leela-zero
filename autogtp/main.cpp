@@ -33,12 +33,46 @@
 
 constexpr int AUTOGTP_VERSION = 2;
 
+QString get_hash_url(QTextStream& cerr) {
+    if (BOARD_SIZE == 19) {
+        return "http://zero.sjeng.org/best-network-hash";
+    }
+    // Don't pollute sjeng server data since that is only for 19*19 games.
+    // However we do not have a own serve yet.
+
+    cerr << "we do not have a own serve yet!" << endl;
+    exit(EXIT_FAILURE);
+}
+
+QString get_best_network_url(QTextStream& cerr) {
+    if (BOARD_SIZE == 19) {
+        return "http://zero.sjeng.org/best-network";
+    }
+    // Don't pollute sjeng server data since that is only for 19*19 games.
+    // However we do not have a own serve yet.
+
+    cerr << "we do not have a own serve yet!" << endl;
+    exit(EXIT_FAILURE);
+}
+
+QString get_upload_url(QTextStream& cerr) {
+    if (BOARD_SIZE == 19) {
+        return "http://zero.sjeng.org/submit";
+    }
+    // Don't pollute sjeng server data since that is only for 19*19 games.
+    // However we do not have a own serve yet.
+
+    cerr << "we do not have a own serve yet!" << endl;
+    exit(EXIT_FAILURE);
+}
+
 bool fetch_best_network_hash(QTextStream& cerr, QString& nethash) {
     QString prog_cmdline("curl");
 #ifdef WIN32
     prog_cmdline.append(".exe");
 #endif
-    prog_cmdline.append(" http://zero.sjeng.org/best-network-hash");
+    prog_cmdline.append(" ");
+    prog_cmdline.append(get_hash_url(cerr));
     QProcess curl;
     curl.start(prog_cmdline);
     curl.waitForFinished(-1);
@@ -83,7 +117,9 @@ bool fetch_best_network(QTextStream& cerr, QString& netname) {
     // error out if it exists)
     prog_cmdline.append(" -s -O -J");
     prog_cmdline.append(" -w %{filename_effective}");
-    prog_cmdline.append(" http://zero.sjeng.org/best-network");
+
+    prog_cmdline.append(" ");
+    prog_cmdline.append(get_best_network_url(cerr));
 
     cerr << prog_cmdline << endl;
 
@@ -140,7 +176,8 @@ bool upload_data(QTextStream& cerr, const QString& netname) {
         prog_cmdline.append(" -F clientversion=" + QString::number(AUTOGTP_VERSION));
         prog_cmdline.append(" -F sgf=@" + sgf_file);
         prog_cmdline.append(" -F trainingdata=@" + data_file);
-        prog_cmdline.append(" http://zero.sjeng.org/submit");
+        prog_cmdline.append(" ");
+        prog_cmdline.append(get_upload_url(cerr));
         cerr << prog_cmdline << endl;
         QProcess curl;
         curl.start(prog_cmdline);
