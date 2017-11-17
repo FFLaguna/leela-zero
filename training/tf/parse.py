@@ -76,14 +76,16 @@ def convert_train_data(text_item):
     """
     planes = []
     for plane in range(0, 16):
-        # 360 first bits are 90 hex chars
-        hex_string = text_item[plane][0:90]
+        hex_len = BOARD_SQUARE_SIZE // 4
+        # convert leading $hex_len hex chars to 4*$hen_len bin chars
+        hex_string = text_item[plane][0:hex_len]
         integer = int(hex_string, 16)
-        as_str = format(integer, '0>360b')
-        # remaining bit that didn't fit
-        last_digit = text_item[plane][90]
-        assert last_digit == "0" or last_digit == "1"
-        as_str += last_digit
+        as_str = format(integer, f'0>{hex_len*4}b')
+        # remaining bit that didn't fit.
+        if BOARD_SIZE % 2 == 1:
+            last_digit = text_item[plane][hex_len]
+            assert last_digit == "0" or last_digit == "1"
+            as_str += last_digit
         assert len(as_str) == BOARD_SQUARE_SIZE
         plane = [0.0 if digit == "0" else 1.0 for digit in as_str]
         planes.append(plane)
@@ -163,7 +165,7 @@ def main(args):
     iterator = dataset.make_one_shot_iterator()
     next_batch = iterator.get_next()
 
-    tfprocess = TFProcess(next_batch)
+    tfprocess = TFProcess(next_batch, BOARD_SIZE)
     if args:
         restore_file = args.pop(0)
         tfprocess.restore(restore_file)
