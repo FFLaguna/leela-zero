@@ -22,6 +22,9 @@
 #include <QProcess>
 #include <QTextStream>
 
+// TODO: a project-wide config would be better.
+const int BOARD_SIZE = 19;
+
 class Game : QProcess {
 public:
     Game(const QString& weights, QTextStream& out);
