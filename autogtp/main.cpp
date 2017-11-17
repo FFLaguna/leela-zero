@@ -28,6 +28,7 @@
 #include <QRegularExpression>
 #include <QUuid>
 #include <QDebug>
+#include <QCryptographicHash>
 #include <iostream>
 #include "Game.h"
 
@@ -38,10 +39,9 @@ QString get_hash_url(QTextStream& cerr) {
         return "http://zero.sjeng.org/best-network-hash";
     }
     // Don't pollute sjeng server data since that is only for 19*19 games.
-    // However we do not have a own serve yet.
-
-    cerr << "we do not have a own serve yet!" << endl;
-    exit(EXIT_FAILURE);
+    // Change to your own server. By default it ponits to a server which
+    // can be launch from ../server/main.py
+    return "http://localhost:8080/best-network-hash";
 }
 
 QString get_best_network_url(QTextStream& cerr) {
@@ -49,10 +49,9 @@ QString get_best_network_url(QTextStream& cerr) {
         return "http://zero.sjeng.org/best-network";
     }
     // Don't pollute sjeng server data since that is only for 19*19 games.
-    // However we do not have a own serve yet.
-
-    cerr << "we do not have a own serve yet!" << endl;
-    exit(EXIT_FAILURE);
+    // Change to your own server. By default it ponits to a server which
+    // can be launch from ../server/main.py
+    return "http://localhost:8080/best-network";
 }
 
 QString get_upload_url(QTextStream& cerr) {
@@ -60,10 +59,9 @@ QString get_upload_url(QTextStream& cerr) {
         return "http://zero.sjeng.org/submit";
     }
     // Don't pollute sjeng server data since that is only for 19*19 games.
-    // However we do not have a own serve yet.
-
-    cerr << "we do not have a own serve yet!" << endl;
-    exit(EXIT_FAILURE);
+    // Change to your own server. By default it ponits to a server which
+    // can be launch from ../server/main.py
+    return "http://localhost:8080/submit";
 }
 
 bool fetch_best_network_hash(QTextStream& cerr, QString& nethash) {
@@ -101,6 +99,10 @@ bool fetch_best_network_hash(QTextStream& cerr, QString& nethash) {
     return true;
 }
 
+// HACK. I don't know to let my server serve file downloading via fixed url but different file content.
+// Hopefully I can remove this hack out once I figure out how to fix the filename issue.
+#define HACK_BEST_MODEL_SERVER_NAME
+
 bool fetch_best_network(QTextStream& cerr, QString& netname) {
     if (QFileInfo::exists(netname)) {
         cerr << "Already downloaded network." << endl;
@@ -132,6 +134,16 @@ bool fetch_best_network(QTextStream& cerr, QString& netname) {
     QStringList outlst = outstr.split("\n");
     QString outfile = outlst[0];
     cerr << "Curl filename: " << outfile << endl;
+
+#ifdef HACK_BEST_MODEL_SERVER_NAME
+    QFile tmpFileRename(outfile);
+    outfile = netname + ".gz";
+    if (!tmpFileRename.rename(outfile)) {
+        cerr << "Sorry, cannot rename." << endl;
+        exit(EXIT_FAILURE);
+    }
+#endif
+
 #ifdef WIN32
     QProcess::execute("gzip.exe -d -k -q " + outfile);
 #else
@@ -139,6 +151,27 @@ bool fetch_best_network(QTextStream& cerr, QString& netname) {
 #endif
     // Remove extension (.gz)
     outfile.chop(3);
+
+#ifdef HACK_BEST_MODEL_SERVER_NAME
+    // check file sha256 equals to netname
+    QFile tmpFileHash(outfile);
+    if (!tmpFileHash.open(QFile::ReadOnly)) {
+        cerr << "Sorry, Fail to open file " + outfile << endl;
+        exit(EXIT_FAILURE);
+    }
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&tmpFileHash)) {
+        cerr << "Sorry, Fail to compute sha256." << endl;
+        exit(EXIT_FAILURE);
+    }
+    QByteArray sha256_output = hash.result();
+    QString sha256_str(sha256_output);
+    if (sha256_str.compare(netname) != 0) {
+        cerr << "SHA256 of " + outfile + " is " + sha256_str + ", but expected to be " + netname << endl;
+        exit(EXIT_FAILURE);
+    }
+#endif
+
     cerr << "Net filename: " << outfile << endl;
     netname = outfile;
 
