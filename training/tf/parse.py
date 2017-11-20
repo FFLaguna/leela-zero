@@ -115,10 +115,14 @@ def convert_train_data(text_item):
     return True, (sym_planes, sym_probabilities, [winner])
 
 class ChunkParser:
-    def __init__(self, chunks):
+    def __init__(self, chunks, max_workers=None):
         self.queue = mp.Queue(4096)
         # Start worker processes, leave 1 for TensorFlow
         workers = max(1, mp.cpu_count() - 1)
+        if max_workers is not None:
+            # In case mp.cpu_count() is not correct(e.g. when run inside Kubernetes image),
+            # then you can use this
+            workers = min(max_workers, workers)
         print("Using {} worker processes.".format(workers))
         for _ in range(workers):
             mp.Process(target=self.task,
@@ -155,7 +159,15 @@ def main(args):
     if not chunks:
         return
 
-    parser = ChunkParser(chunks)
+    max_workers, KEY_MAX_WORKERS = None, '--max-workers'
+    if KEY_MAX_WORKERS in args:
+        idx = args.index(KEY_MAX_WORKERS)
+        if len(args) - 1 == idx: # last element, wrong
+            raise Exception(f'value expected for {KEY_MAX_WORKERS}!')
+        max_workers = int(args.pop(idx+1))
+        args.pop(idx)
+
+    parser = ChunkParser(chunks, max_workers)
 
     dataset = tf.data.Dataset.from_generator(
         parser.parse_chunk, output_types=(tf.float32, tf.float32, tf.float32))
