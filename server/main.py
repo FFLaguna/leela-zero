@@ -33,15 +33,16 @@ class Submit:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         random_postfix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
-        dir = f'./static/train_data/{model_hash}'
+        dir = f'./static/self_play/{model_hash}'
         os.makedirs(dir, exist_ok=True)
-
         fn_sgf = os.path.join(dir, f'v{v}-{timestamp}-{random_postfix}.sgf.gz')
         with open(fn_sgf, 'wb') as f:
             f.write(sgf)
             print(f'{fn_sgf} saved.')
-        fn_training_data = os.path.join(dir, f'v{v}-{timestamp}-{random_postfix}.txt.0.gz')
 
+        dir = f'./static/train_data/{model_hash}'
+        os.makedirs(dir, exist_ok=True)
+        fn_training_data = os.path.join(dir, f'v{v}-{timestamp}-{random_postfix}.txt.0.gz')
         with open(fn_training_data, 'wb') as f:
             f.write(training_data)
             print(f'{fn_training_data} saved')
