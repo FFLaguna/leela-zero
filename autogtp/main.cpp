@@ -31,74 +31,29 @@
 
 constexpr int AUTOGTP_VERSION = 3;
 
-QString get_hash_url(QTextStream& cerr) {
-    if (BOARD_SIZE == 19) {
-        return "http://zero.sjeng.org/best-network-hash";
-    }
-    // Don't pollute sjeng server data since that is only for 19*19 games.
-    // Change to your own server. By default it ponits to a server which
-    // can be launch from ../server/main.py
-    return "http://localhost:8080/best-network-hash";
-}
-
-QString get_best_network_url(QTextStream& cerr) {
-    if (BOARD_SIZE == 19) {
-        return "http://zero.sjeng.org/best-network";
-    }
-    // Don't pollute sjeng server data since that is only for 19*19 games.
-    // Change to your own server. By default it ponits to a server which
-    // can be launch from ../server/main.py
-    return "http://localhost:8080/best-network";
-}
-
-QString get_upload_url(QTextStream& cerr) {
-    if (BOARD_SIZE == 19) {
-        return "http://zero.sjeng.org/submit";
-    }
-    // Don't pollute sjeng server data since that is only for 19*19 games.
-    // Change to your own server. By default it ponits to a server which
-    // can be launch from ../server/main.py
-    return "http://localhost:8080/submit";
-}
+static const QString mydir("/fds/exp/leela-zero/9x9/static/");
 
 bool fetch_best_network_hash(QTextStream& cerr, QString& nethash) {
-    QString prog_cmdline("curl");
-#ifdef WIN32
-    prog_cmdline.append(".exe");
-#endif
-    prog_cmdline.append(" ");
-    prog_cmdline.append(get_hash_url(cerr));
-    QProcess curl;
-    curl.start(prog_cmdline);
-    curl.waitForFinished(-1);
-    QByteArray output = curl.readAllStandardOutput();
-    QString outstr(output);
-    QStringList outlst = outstr.split("\n");
-    if (outlst.size() != 2) {
-        cerr << "Unexpected output from server: " << endl << output << endl;
+    QFile inputFile(mydir + "best_model_hash");
+    if (!inputFile.open(QIODevice::ReadOnly)) {
+        cerr << "fail opening best_model_hash" << endl;
         exit(EXIT_FAILURE);
     }
-    QString outhash = outlst[0];
-    cerr << "Best network hash: " << outhash << endl;
-    QString client_version = outlst[1];
-    auto server_expected = client_version.toInt();
-    cerr << "Required client version: " << client_version;
-    if (server_expected > AUTOGTP_VERSION) {
-        cerr << endl;
-        cerr << "Server requires client version " << server_expected
-             << " but we are version " << AUTOGTP_VERSION << endl;
-        cerr << "Check https://github.com/gcp/leela-zero for updates." << endl;
+    QTextStream in(&inputFile);
+    if (in.atEnd()) {
+        inputFile.close();
+        cerr << "empty best_model_hash" << endl;
         exit(EXIT_FAILURE);
-    } else {
-        cerr << " (OK)" << endl;
     }
-    nethash = outhash;
+    nethash = in.readLine();
+    if (nethash.isEmpty()) {
+        inputFile.close();
+        cerr << "empty hash" << endl;
+        exit(EXIT_FAILURE);
+    } 
+    inputFile.close();
     return true;
 }
-
-// HACK. I don't know to let my server serve file downloading via fixed url but different file content.
-// Hopefully I can remove this hack out once I figure out how to fix the filename issue.
-#define HACK_BEST_MODEL_SERVER_NAME
 
 bool fetch_best_network(QTextStream& cerr, QString& netname) {
     if (QFileInfo::exists(netname)) {
@@ -106,40 +61,12 @@ bool fetch_best_network(QTextStream& cerr, QString& netname) {
         return true;
     }
 
-    QString prog_cmdline("curl");
-#ifdef WIN32
-    prog_cmdline.append(".exe");
-#endif
-    // Be quiet, but output the real file name we saved to
-    // Use the filename from the server
-    // Resume download if file exists (aka avoid redownloading, and don't
-    // error out if it exists)
-    prog_cmdline.append(" -s -O -J");
-    prog_cmdline.append(" -w %{filename_effective}");
-
-    prog_cmdline.append(" ");
-    prog_cmdline.append(get_best_network_url(cerr));
-
-    cerr << prog_cmdline << endl;
-
-    QProcess curl;
-    curl.start(prog_cmdline);
-    curl.waitForFinished(-1);
-
-    QByteArray output = curl.readAllStandardOutput();
-    QString outstr(output);
-    QStringList outlst = outstr.split("\n");
-    QString outfile = outlst[0];
-    cerr << "Curl filename: " << outfile << endl;
-
-#ifdef HACK_BEST_MODEL_SERVER_NAME
-    QFile tmpFileRename(outfile);
-    outfile = netname + ".gz";
-    if (!tmpFileRename.rename(outfile)) {
-        cerr << "Sorry, cannot rename." << endl;
-        exit(EXIT_FAILURE);
+    QString outfile(netname+".gz");
+    bool ret = QFile::copy(mydir + outfile, "./"+outfile);
+    if (!ret) {
+        cerr << "Fail to copy best model" << endl;
+        return false;
     }
-#endif
 
 #ifdef WIN32
     QProcess::execute("gzip.exe -d -k -q " + outfile);
@@ -149,7 +76,6 @@ bool fetch_best_network(QTextStream& cerr, QString& netname) {
     // Remove extension (.gz)
     outfile.chop(3);
 
-#ifdef HACK_BEST_MODEL_SERVER_NAME
     // check file sha256 equals to netname
     QFile tmpFileHash(outfile);
     if (!tmpFileHash.open(QFile::ReadOnly)) {
@@ -164,13 +90,14 @@ bool fetch_best_network(QTextStream& cerr, QString& netname) {
     QByteArray sha256_output = hash.result();
     QString sha256_str(sha256_output);
     if (sha256_str.compare(netname) != 0) {
+        tmpFileHash.close();
         cerr << "SHA256 of " + outfile + " is " + sha256_str + ", but expected to be " + netname << endl;
         exit(EXIT_FAILURE);
     }
-#endif
 
     cerr << "Net filename: " << outfile << endl;
     netname = outfile;
+    tmpFileHash.close();
 
     return true;
 }
@@ -202,23 +129,9 @@ bool upload_data(QTextStream& cerr, const QString& netname, QString sgf_output_p
         QProcess::execute("gzip " + sgf_file);
 #endif
         sgf_file += ".gz";
-        QString prog_cmdline("curl");
-#ifdef WIN32
-        prog_cmdline.append(".exe");
-#endif
-        prog_cmdline.append(" -F networkhash=" + netname);
-        prog_cmdline.append(" -F clientversion=" + QString::number(AUTOGTP_VERSION));
-        prog_cmdline.append(" -F sgf=@" + sgf_file);
-        prog_cmdline.append(" -F trainingdata=@" + data_file);
-        prog_cmdline.append(" ");
-        prog_cmdline.append(get_upload_url(cerr));
-        cerr << prog_cmdline << endl;
-        QProcess curl;
-        curl.start(prog_cmdline);
-        curl.waitForFinished(-1);
-        QByteArray output = curl.readAllStandardOutput();
-        QString outstr(output);
-        cerr << outstr;
+
+        QFile(sgf_file).copy(mydir + netname + "/" + netname + "/" + sgf_file);
+        QFile(data_file).copy(mydir + netname + "/" + netname + "/" + data_file);
         dir.remove(sgf_file);
         dir.remove(data_file);
     }
