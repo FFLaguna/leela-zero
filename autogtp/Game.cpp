@@ -92,6 +92,7 @@ bool Game::sendGtpCommand(QString cmd) {
 }
 
 bool Game::gameStart() {
+    setProcessChannelMode(QProcess::MergedChannels);
     start(cmdLine);
     if(!waitForStarted()) {
         error(Game::NO_LEELAZ);

@@ -19,6 +19,7 @@
 import os
 import numpy as np
 import time
+import datetime
 import tensorflow as tf
 
 def weight_variable(shape):
@@ -41,7 +42,7 @@ def conv2d(x, W):
                         strides=[1, 1, 1, 1], padding='SAME')
 
 class TFProcess:
-    def __init__(self, next_batch, board_size):
+    def __init__(self, next_batch, board_size, output_path=None):
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
         config = tf.ConfigProto(gpu_options=gpu_options)
         self.session = tf.Session(config=config)
@@ -50,6 +51,7 @@ class TFProcess:
         self.weights = []
 
         self.board_size = board_size
+        self.output_path = output_path if output_path is not None else os.getcwd()
 
         # TF variables
         self.next_batch = next_batch
@@ -98,9 +100,9 @@ class TFProcess:
 
         # Summary part
         self.test_writer = tf.summary.FileWriter(
-            os.path.join(os.getcwd(), "leelalogs/test"), self.session.graph)
+            os.path.join(self.output_path, "leelalogs/test"), self.session.graph)
         self.train_writer = tf.summary.FileWriter(
-            os.path.join(os.getcwd(), "leelalogs/train"), self.session.graph)
+            os.path.join(self.output_path, "leelalogs/train"), self.session.graph)
 
         self.init = tf.global_variables_initializer()
         self.saver = tf.train.Saver()
@@ -165,9 +167,10 @@ class TFProcess:
             self.test_writer.add_summary(test_summaries, steps)
             print("step {}, training accuracy={:g}%, mse={:g}".format(
                 steps, sum_accuracy*100.0, sum_mse))
-            path = os.path.join(os.getcwd(), "leelaz-model")
+            path = os.path.join(self.output_path, "leelaz-model")
             save_path = self.saver.save(self.session, path, global_step=steps)
             print("Model saved in file: {}".format(save_path))
+            path = os.path.join(self.output_path, f"leelaz-model-"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f"))
             leela_path = path + ".txt"
             self.save_leelaz_weights(leela_path)
             print("Leela weights saved to {}".format(leela_path))
