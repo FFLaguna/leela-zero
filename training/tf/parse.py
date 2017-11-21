@@ -159,6 +159,14 @@ def main(args):
     if not chunks:
         return
 
+    output_path, KEY_OUTPUT_PATH = None, '--output-path'
+    if KEY_OUTPUT_PATH in args:
+        idx = args.index(KEY_OUTPUT_PATH)
+        if len(args) - 1 == idx: # last element, wrong
+            raise Exception(f'value expected for {KEY_OUTPUT_PATH}!')
+        output_path = args.pop(idx+1)
+        args.pop(idx)
+
     max_workers, KEY_MAX_WORKERS = None, '--max-workers'
     if KEY_MAX_WORKERS in args:
         idx = args.index(KEY_MAX_WORKERS)
@@ -177,7 +185,7 @@ def main(args):
     iterator = dataset.make_one_shot_iterator()
     next_batch = iterator.get_next()
 
-    tfprocess = TFProcess(next_batch, BOARD_SIZE)
+    tfprocess = TFProcess(next_batch, BOARD_SIZE, output_path)
     if args:
         restore_file = args.pop(0)
         tfprocess.restore(restore_file)

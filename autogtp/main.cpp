@@ -52,6 +52,7 @@ bool fetch_best_network_hash(QTextStream& cerr, QString& nethash) {
         exit(EXIT_FAILURE);
     } 
     inputFile.close();
+    cerr << "best model hash: " << nethash << endl;
     return true;
 }
 
@@ -62,7 +63,7 @@ bool fetch_best_network(QTextStream& cerr, QString& netname) {
     }
 
     QString outfile(netname+".gz");
-    bool ret = QFile::copy(mydir + outfile, "./"+outfile);
+    bool ret = QFile::copy(mydir + "best_model.txt.gz", "./"+outfile);
     if (!ret) {
         cerr << "Fail to copy best model" << endl;
         return false;
@@ -77,27 +78,36 @@ bool fetch_best_network(QTextStream& cerr, QString& netname) {
     outfile.chop(3);
 
     // check file sha256 equals to netname
-    QFile tmpFileHash(outfile);
-    if (!tmpFileHash.open(QFile::ReadOnly)) {
-        cerr << "Sorry, Fail to open file " + outfile << endl;
-        exit(EXIT_FAILURE);
-    }
-    QCryptographicHash hash(QCryptographicHash::Sha256);
-    if (!hash.addData(&tmpFileHash)) {
-        cerr << "Sorry, Fail to compute sha256." << endl;
-        exit(EXIT_FAILURE);
-    }
-    QByteArray sha256_output = hash.result();
-    QString sha256_str(sha256_output);
-    if (sha256_str.compare(netname) != 0) {
-        tmpFileHash.close();
-        cerr << "SHA256 of " + outfile + " is " + sha256_str + ", but expected to be " + netname << endl;
-        exit(EXIT_FAILURE);
-    }
+    // QFile tmpFileHash(outfile);
+    // if (!tmpFileHash.open(QFile::ReadOnly)) {
+    //     cerr << "Sorry, Fail to open file " + outfile << endl;
+    //     exit(EXIT_FAILURE);
+    // }
+    // QCryptographicHash hash(QCryptographicHash::Sha256);
+    // if (!hash.addData(&tmpFileHash)) {
+    //     cerr << "Sorry, Fail to compute sha256." << endl;
+    //     exit(EXIT_FAILURE);
+    // }
+    // QByteArray sha256_output = hash.result();
+    // QString sha256_str(sha256_output);
+    // if (sha256_str.compare(netname) != 0) {
+    //     tmpFileHash.close();
+    //     cerr << "SHA256 of " + outfile + " is " + sha256_str + ", but expected to be " + netname << endl;
+    //     exit(EXIT_FAILURE);
+    // }
+    // tmpFileHash.close();
 
     cerr << "Net filename: " << outfile << endl;
     netname = outfile;
-    tmpFileHash.close();
+
+    // DEBUG purpose
+
+    QFileInfoList list = QDir().entryInfoList();
+    for (int i = 0; i < list.size(); ++i) {
+        QFileInfo fileInfo = list.at(i);
+
+        cerr << " filename: " <<  fileInfo.fileName() << endl;
+    }
 
     return true;
 }
@@ -130,8 +140,28 @@ bool upload_data(QTextStream& cerr, const QString& netname, QString sgf_output_p
 #endif
         sgf_file += ".gz";
 
-        QFile(sgf_file).copy(mydir + netname + "/" + netname + "/" + sgf_file);
-        QFile(data_file).copy(mydir + netname + "/" + netname + "/" + data_file);
+        QString target_sgf_folder(mydir + netname + "/sgf/");
+        if (!QDir(target_sgf_folder).exists()) {
+            if (!QDir().mkpath(target_sgf_folder)) {
+                cerr << "Fail to mdir " << target_sgf_folder << endl;
+                return false;
+            }
+        }
+        QString target_train_data_folder(mydir + netname + "/train_data/");
+        if (!QDir(target_train_data_folder).exists()) {
+            if (!QDir().mkpath(target_train_data_folder)) {
+                cerr << "Fail to mdir " << target_train_data_folder << endl;
+                return false;
+            }
+        }
+        if (!QFile(sgf_file).copy(target_sgf_folder + sgf_file)) {
+            cerr << "Fail to copy " << sgf_file << endl;
+            return false;
+        }
+        if (!QFile(data_file).copy(target_train_data_folder + data_file)) {
+            cerr << "Fail to copy " << data_file << endl;
+            return false;
+        }
         dir.remove(sgf_file);
         dir.remove(data_file);
     }
