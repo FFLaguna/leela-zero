@@ -20,3 +20,6 @@ Run:
 
 Maybe intergrate it to autogtp
 
+# Credit
+
+this module is original developed by Mr. DaiZhen.
