@@ -388,7 +388,7 @@ int main(int argc, char *argv[])
     QTextStream cin(stdin, QIODevice::ReadOnly);
     QTextStream cerr(stderr, QIODevice::WriteOnly);
 
-    const QString fp_best_model_archive("/fds/exp/leela-zero/9x9/static/best_model_archive");
+    const QString fp_best_model_archive("/fds/exp/leela-zero/9x9/static/eval");
     const QString fp_best_model_hash("/fds/exp/leela-zero/9x9/static/best_model_hash");
     const QString fp_best_model_gz("/fds/exp/leela-zero/9x9/static/best_model.txt.gz");
     const QString fn_model_dir("/fds/exp/leela-zero/9x9/static/opt");
