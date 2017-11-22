@@ -15,7 +15,7 @@
 #include <iostream>
 #include <functional>
 
-const int eval_boardsize = 9;
+const int eval_boardsize = 19;
 const float eval_replace_rate = .55f;
 const int eval_game_num = 100;
 
