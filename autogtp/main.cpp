@@ -140,14 +140,14 @@ bool upload_data(QTextStream& cerr, const QString& netname, QString sgf_output_p
 #endif
         sgf_file += ".gz";
 
-        QString target_sgf_folder(mydir + netname + "/sgf/");
+        QString target_sgf_folder(mydir + "self/" + netname + "/sgf/");
         if (!QDir(target_sgf_folder).exists()) {
             if (!QDir().mkpath(target_sgf_folder)) {
                 cerr << "Fail to mdir " << target_sgf_folder << endl;
                 return false;
             }
         }
-        QString target_train_data_folder(mydir + netname + "/train_data/");
+        QString target_train_data_folder(mydir + "self/" + netname + "/train_data/");
         if (!QDir(target_train_data_folder).exists()) {
             if (!QDir().mkpath(target_train_data_folder)) {
                 cerr << "Fail to mdir " << target_train_data_folder << endl;
