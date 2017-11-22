@@ -5,6 +5,7 @@
 #include <QtCore/QPair>
 #include <QtCore/QVector>
 #include <QProcess>
+#include <QThread>
 #include <QFile>
 #include <QCryptographicHash>
 #include <QDir>
@@ -86,7 +87,7 @@ bool eval_one_game(QTextStream &cerr, QProcess& first_process, QProcess& second_
     if (!sendGtpCommand(cerr, second_process, QStringLiteral("time_settings 0 1 0"))) {
         exit(EXIT_FAILURE);
     }
-    cerr << "Time successfully set." << endl;
+    //cerr << "Time successfully set." << endl;
 
     do {
         move_num++;
@@ -127,8 +128,8 @@ bool eval_one_game(QTextStream &cerr, QProcess& first_process, QProcess& second_
         read_cnt = proc.get().readLine(readbuff, 256);
         Q_ASSERT(read_cnt > 0);
 
-        cerr << (black_to_move ? "B" : "W") << "(" << resp_move << ") ";
-        cerr.flush();
+        //cerr << (black_to_move ? "B" : "W") << "(" << resp_move << ") ";
+        //cerr.flush();
 
         QString move_side(QStringLiteral("play "));
         QString side_prefix;
@@ -168,7 +169,7 @@ bool eval_one_game(QTextStream &cerr, QProcess& first_process, QProcess& second_
         }
     } while (!stop && passes < 2 && move_num < (eval_boardsize * eval_boardsize * 2));
 
-    cerr << endl;
+    //cerr << endl;
 
     // Nobody resigned, we will have to count
     if (!stop) {
@@ -181,7 +182,6 @@ bool eval_one_game(QTextStream &cerr, QProcess& first_process, QProcess& second_
         }
         read_cnt = first_process.readLine(readbuff, 256);
         QString score(&readbuff[2]);
-        cerr << "Score: " << score;
         // final_score returns
         // "= W+" or "= B+"
         if (readbuff[2] == 'W') {
@@ -189,7 +189,7 @@ bool eval_one_game(QTextStream &cerr, QProcess& first_process, QProcess& second_
         } else if (readbuff[2] == 'B') {
             winner = QString(QStringLiteral("black"));
         }
-        cerr << "Winner: " << winner << endl;
+        cerr << "Winner: " << winner << ".  Score: " << score;
         // Double newline
         if (!waitForReadyRead(first_process)) {
             cerr << "Fail to count for first process" << endl;
@@ -254,11 +254,11 @@ bool eval_one_model(QTextStream &cerr,
     nextgen_model_player_cmdline.append(next_gen_weightsname);
     nextgen_model_player_cmdline.append(" -p 800 --noponder");
 
-    cerr << "best model player command line :" << endl;
-    cerr << bestmodel_player_cmdline << endl;
+    // cerr << "best model player command line :";
+    // cerr << bestmodel_player_cmdline << endl;
 
-    cerr << "next generation model player command line :" << endl;
-    cerr << nextgen_model_player_cmdline << endl;
+    // cerr << "next generation model player command line :";
+    // cerr << nextgen_model_player_cmdline << endl;
 
     QProcess first_process, second_process;
     first_process.start(bestmodel_player_cmdline);
@@ -274,7 +274,8 @@ bool eval_one_model(QTextStream &cerr,
     for(int i=0; i<eval_game_num; i++){
            bool best_model_win = eval_one_game(cerr, first_process, second_process);
            results.append(best_model_win);
-           winning_rate = results.count(true)/results.size();
+           winning_rate = 1.0f * results.count(true) / results.size();
+           cerr << (i+1) << " games played. Best winning rate: " << winning_rate << endl;
            if(results.count(true)>=eval_game_num * (1.0f - eval_replace_rate)){
                cerr << "lose count reach : " << results.count(true) << ", so give up challenge." << endl;
                break;
@@ -387,39 +388,41 @@ int main(int argc, char *argv[])
     QTextStream cin(stdin, QIODevice::ReadOnly);
     QTextStream cerr(stderr, QIODevice::WriteOnly);
 
-    const QString fp_best_model_archive("/fds/exp/leela-zero/9x9/static/best_model/archive");
+    const QString fp_best_model_archive("/fds/exp/leela-zero/9x9/static/best_model_archive");
     const QString fp_best_model_hash("/fds/exp/leela-zero/9x9/static/best_model_hash");
     const QString fp_best_model_gz("/fds/exp/leela-zero/9x9/static/best_model.txt.gz");
     const QString fn_model_dir("/fds/exp/leela-zero/9x9/static/opt");
 
-    bool download_best_model = true;
     while (true) {
+        const QString expected_hash = first_line(cerr, fp_best_model_hash);
 
         const QString fp_best_model("best_model.txt");
-        if (download_best_model) {
-
+        if (!QFile::exists(fp_best_model)) {
             QString fp_tmp_best_model_gz(fp_best_model+".gz");
             myexecute(cerr, "cp " + fp_best_model_gz + " " + fp_tmp_best_model_gz);
             myexecute(cerr, "gunzip -f " + fp_tmp_best_model_gz);
-
-            // check best model hash
-            QString expected_hash = first_line(cerr, fp_best_model_hash);
-            QString actual_hash = sha256(cerr, fp_best_model);
-            if (expected_hash != actual_hash)
-            {
-                cerr << "wrong hash. Expected " << expected_hash << ", actual " << actual_hash << endl;
-                exit(EXIT_FAILURE);
-            }
-
-            download_best_model = false;
         }
 
-		QDir dir(fn_model_dir);
+        // check best model hash
+        QString actual_hash = sha256(cerr, fp_best_model);
+        if (expected_hash != actual_hash) {
+            cerr << "wrong hash. Expected " << expected_hash << ", actual " << actual_hash << ". Delete local, sleep, and retry." << endl;
+            myexecute(cerr, "rm " + fp_best_model);
+            QThread::sleep(6);
+            continue;
+        }
+
+        QDir dir(fn_model_dir);
         QStringList filters;
         filters << "leelaz-model-*.txt";
         dir.setNameFilters(filters);
         dir.setFilter(QDir::Files | QDir::NoSymLinks);
         QFileInfoList list = dir.entryInfoList();
+        if (list.size() == 0) {
+            cerr << "No model to evaluate. Sleeping..." << endl;
+            QThread::sleep(60);
+            continue;
+        }
         for (int i = 0; i < list.size(); ++i) {
             QFileInfo fileInfo = list.at(i);
             QString fp_model = fileInfo.filePath();
@@ -438,20 +441,19 @@ int main(int argc, char *argv[])
                 myexecute(cerr, "gzip -f -k " + fp_model);
                 QString model_gz(fp_model + ".gz");
 
-                myexecute(cerr, "mv " + fn_tmp_hash + " " + fp_best_model_hash);
+                myexecute(cerr, "cp " + fn_tmp_hash + " " + fp_best_model_archive + "/best_model_hash_list");
                 myexecute(cerr, "cp " + model_gz + " " + fp_best_model_archive + "/" + hash + ".gz");
+                myexecute(cerr, "mv " + fn_tmp_hash + " " + fp_best_model_hash);
                 myexecute(cerr, "cp " + model_gz + " " + fp_best_model_gz);
                 myexecute(cerr, "rm " + model_gz);
 
                 cerr << "best model updated. Hash: " << hash << endl;
-
-                myexecute(cerr, "rm " + fp_best_model);
-                download_best_model = true;
             }
 
             myexecute(cerr, "rm " + fp_model);
-
-            if (download_best_model) {
+            
+            if (is_model_good) {
+                myexecute(cerr, "rm " + fp_best_model);
                 break;
             }
         }
